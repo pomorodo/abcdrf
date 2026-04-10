@@ -10,7 +10,7 @@ n_cores <- parallel::detectCores() - 2 #per il mio mac è la funzione più safe
 # Parametri del modello
 a0<-4 #shape della IG
 b0<-3 #rate della IG
-n_oss<-20  # del campione
+n_oss<-10  # del campione
 
 # Summary Stat., il paper usa 11 features ridondanti: mean, sd, MAD e sum/prod tra essi
 # Qui ne propongo altri, poichè vorrei mostrarne l'utilità, mentre Raynal voleva
@@ -88,7 +88,11 @@ gdl<- n_oss+8 #gradi di libertà
 cat("Training DRFs...\n")
 #drf(Xref, thjoint, ntrees)
 n_trees<-5000
-drf_tr<-drf(X=Xref, Y=cbind(theta1=th1, theta2=th2), num.trees = n_trees, num.threads = n_cores)
+drf_tr<-drf(
+            X=Xref,
+            Y=cbind(theta1=th1, theta2=th2),
+            num.trees = n_trees,
+            num.threads = n_cores)
 #predict ha bisogno di una matrice 1xnfeatures quindi
 y_vero_matx<-matrix(as.numeric(y_vero), nrow = 1)
 colnames(y_vero_matx) <- colnames(Xref)
@@ -139,7 +143,7 @@ image(kde_joint,
       xlab="Theta 1",
       ylab="Theta 2",
       main="DRF: joint posterior")
-contour(asse1_joint, asse2_joint, mappa_joint, add=TRUE, col="red", lwd=2, levels = livelli, drawlabels=FALSE)
+contour(asse1_joint, asse2_joint, mappa_joint, add=TRUE, col="red", lty = 6,lwd=2, levels = livelli, drawlabels=FALSE)
 points(th1_vero,th2_vero,lwd=3, pch=4, cex= 2,col="white")
 legend("topright",
        legend = c("DRF", "True post", "True (th1, th2)"),
@@ -148,7 +152,7 @@ legend("topright",
        lwd    = c(6, 6, 6),
        bty    = "n")
 
-# NON FUNZIONA BENE CONTOUR
+# Contour corretto?
 #Marginale di th1 ———————————————————
 ylim2 <- c(0, max(dens1_vera, th1_densmarg$y) * 1.25)
 
