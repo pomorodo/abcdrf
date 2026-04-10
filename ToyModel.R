@@ -4,11 +4,13 @@ library(abcrf)
 library(MASS) #per kde
 library(invgamma)
 library(drf)
-set.seed(8)
+library(parallel)#per tutte le robe multicore
+set.seed(88)
+n_cores <- parallel::detectCores() - 2 #per il mio mac è la funzione più safe
 # Parametri del modello
 a0<-4 #shape della IG
 b0<-3 #rate della IG
-n_oss<-10  # del campione
+n_oss<-20  # del campione
 
 # Summary Stat., il paper usa 11 features ridondanti: mean, sd, MAD e sum/prod tra essi
 # Qui ne propongo altri, poichè vorrei mostrarne l'utilità, mentre Raynal voleva
@@ -23,7 +25,7 @@ sst<- function(y){
   Ybar=Ybar, 
   SD=SD,
   MAD=MAD,
-  SQ=sum((y-Ybar)^2), #statistiche sufficienti per th1 e th2
+  SQ=sum((y-Ybar)^2), #Ybar e SQ sono statistiche sufficienti per th1 e th2, ne mettiamo di piu per dimostrare che la drf è capace di ignorare quelle inutili
   Median=median(y),
   q25=quantile(y, 0.25),
   q90=quantile(y, 0.9),
@@ -40,9 +42,12 @@ th2<- rinvgamma(n_sim, shape = a0, rate = b0)
 th1<- rnorm(n_sim, mean = 0, sd=sqrt(th2))
 cat("X_ref...\n")
 
-Sref<-t(sapply(1:n_sim,
-               function(x)
-               sst(rnorm(n_oss, mean = th1[x], sd=sqrt(th2[x])))))
+Sref<-mclapply(1:n_sim,#mclapply è la verisone multicore parallel di sapply (non ha piu bisogno della trasposta)
+               function(x){
+               sst(rnorm(n_oss, mean = th1[x], sd=sqrt(th2[x])))}, mc.cores = n_cores)#mclapply la trasforma in lista, quindi
+Sref<-do.call(rbind,Sref)
+
+
 Rumref<-matrix(runif(50*n_sim), nrow = n_sim, ncol = 50)
 colnames(Rumref)<-paste0("feature #", 1:50)
 
@@ -54,7 +59,7 @@ th1_vero<-rnorm(1,mean = 0, sd = sqrt(th2_vero))
 y_temp<-rnorm(n_oss, mean = th1_vero, sd = sqrt(th2_vero))
 
 y_vero<-c(sst(y_temp), runif(50))
-y_vero<-as.data.frame(t(c(sst(y_temp), runif(50))))
+y_vero<-as.data.frame(t(y_vero))
 colnames(y_vero) <- colnames(Xref)
 cat(sprintf("True parameters: th1 = %.3f   th2 = %.3f\n",th1_vero, th2_vero))
 
@@ -82,8 +87,8 @@ gdl<- n_oss+8 #gradi di libertà
 #ABC-DRF
 cat("Training DRFs...\n")
 #drf(Xref, thjoint, ntrees)
-n_trees<-1000
-drf_tr<-drf(X=Xref, Y=cbind(theta1=th1, theta2=th2), num.trees = n_trees)
+n_trees<-5000
+drf_tr<-drf(X=Xref, Y=cbind(theta1=th1, theta2=th2), num.trees = n_trees, num.threads = n_cores)
 #predict ha bisogno di una matrice 1xnfeatures quindi
 y_vero_matx<-matrix(as.numeric(y_vero), nrow = 1)
 colnames(y_vero_matx) <- colnames(Xref)
@@ -122,7 +127,9 @@ kde_joint<-kde2d(
   n=200,
   lims=c(-1,3,0.01,4)
 )
-livelli<- quantile(mappa_joint, probs=c(0.1,0.25,0.37,0.5,0.75,0.87,0.95,0.99))#per il contour rosso (8)
+#mappa_joint[mappa_joint > max(mappa_joint) * 0.05] # cosi posso tagliare le code quasi piatte e tenere solo valori rilevanti (controlla se è giusto)
+livelli <- quantile(mappa_joint[mappa_joint > max(mappa_joint) * 0.01], probs = c(0.001, 0.01, 0.1, 0.3, 0.5, 0.9, 0.99)) #per il contour rosso
+
 
 #Heatmap
 image(kde_joint,
@@ -133,12 +140,12 @@ image(kde_joint,
       ylab="Theta 2",
       main="DRF: joint posterior")
 contour(asse1_joint, asse2_joint, mappa_joint, add=TRUE, col="red", lwd=2, levels = livelli, drawlabels=FALSE)
-points(th1_vero,th2_vero,lwd=3,col="white")
+points(th1_vero,th2_vero,lwd=3, pch=4, cex= 2,col="white")
 legend("topright",
        legend = c("DRF", "True post", "True (th1, th2)"),
        col    = c(hcl.colors(1, "viridis"), "red", "white"),
-       lty    = c(1, 1, NA),
-       lwd    = c(6, 2, 3),
+       lty    = c(5, 1, 1),
+       lwd    = c(6, 6, 6),
        bty    = "n")
 
 # NON FUNZIONA BENE CONTOUR
