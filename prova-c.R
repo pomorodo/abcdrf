@@ -45,7 +45,7 @@ sumstats <- function(Y) {
   # quantili empirici al 10°, 25°, 75°, 90° percentile:
   # catturano la forma della distribuzione campionaria meglio della sola varianza
   
-  c(Ybar  = Ybar,           # 1. media
+  c(Ybar  = Ybar,            # 1. media
     S2    = S2,             # 2. somma scarti quadratici
     varY  = var(Y),         # 3. varianza campionaria (con divisione n-1, diversa da S2/n)
     medY  = median(Y),      # 4. mediana: robusta agli outlier
@@ -162,35 +162,47 @@ df1  <- n_obs + 8                                      # gradi di libertà
 # bw = "SJ": selettore di banda di Sheather-Jones, più accurato del default "nrd0"
 #            per distribuzioni asimmetriche come la Inverse-Gamma.
 # n = 512: numero di punti della griglia su cui valutare la densità.
-# ── 6. ABC-RF (versione corretta) ────────────────────────────────────────────
-cat("Fit ABC-RF...\n")
-ref_df <- as.data.frame(X_ref)
+# ── 6. ABC-RF ────────────────────────────────────────────────────────────────
+#cat("Fit ABC-RF...\n")
+#ref_df <- as.data.frame(X_ref)
 
-rf_t1 <- regAbcrf(theta1 ~ .,
-                  data  = data.frame(theta1 = th1, ref_df),
-                  ntree = 500, paral = TRUE, ncores = parallel::detectCores()-3)
+#rf_t1 <- regAbcrf(theta1 ~ .,
+            #      data  = data.frame(theta1 = th1, ref_df),
+            #      ntree = 500, paral = TRUE,
+            #      ncores = parallel::detectCores() - 1)
 
-rf_t2 <- regAbcrf(theta2 ~ .,
-                  data  = data.frame(theta2 = th2, ref_df),
-                  ntree = 500, paral = TRUE, ncores = parallel::detectCores() - 3)
+#rf_t2 <- regAbcrf(theta2 ~ .,
+              #    data  = data.frame(theta2 = th2, ref_df),
+              #    ntree = 500, paral = TRUE,
+              #    ncores = parallel::detectCores() - 1)
 
-# densityPlot() è la funzione ufficiale di abcrf per la densità posteriore.
-# Restituisce un oggetto density invisibilmente; usiamo capture.output()
-# per sopprimere il grafico che aprirebbe automaticamente.
-invisible(capture.output({
-  d1_rf <- densityPlot(rf_t1,
-                       obs      = x_obs_df,
-                       training = data.frame(theta1 = th1, ref_df),
-                       paral    = FALSE)
+# Estraiamo i pesi usando la foresta ranger sottostante direttamente
+# rf_t1$model.rf è l'oggetto ranger; predict su ranger restituisce
+# le foglie per ogni albero → da cui ricaviamo i pesi locali
+#get_abcrf_weights <- function(rf_obj, x_obs_df, th_ref) {
+  # Predizione foglie: matrice N_ref × ntree
+ # leaves_ref <- predict(rf_obj$model.rf,
+                  #      data        = ref_df,
+                  #      type        = "terminalNodes")$predictions
+  # Foglie per l'osservazione target: vettore di lunghezza ntree
+ # leaves_obs <- predict(rf_obj$model.rf,
+                     #   data        = x_obs_df,
+                     #   type        = "terminalNodes")$predictions[1, ]
   
-  d2_rf <- densityPlot(rf_t2,
-                       obs      = x_obs_df,
-                       training = data.frame(theta2 = th2, ref_df),
-                       paral    = FALSE)
-}))
+  # Peso = proporzione di alberi in cui ref[i] finisce nella stessa foglia di x_obs
+#  w <- colMeans(t(leaves_ref) == leaves_obs)
+#  w <- pmax(w, 0)
+ # w / sum(w)
+#}
 
-# d1_rf e d2_rf sono ora oggetti density standard con campi $x e $y,
-# pronti per essere usati con lines() esattamente come prima.
+#w_rf1 <- get_abcrf_weights(rf_t1, x_obs_df, th1)
+#w_rf2 <- get_abcrf_weights(rf_t2, x_obs_df, th2)
+
+#d1_rf <- density(th1, weights = w_rf1, n = 512, bw = "SJ")
+#d2_rf <- density(th2, weights = w_rf2, n = 512, bw = "SJ")
+
+#cat("Range d1_rf$x:", range(d1_rf$x), "\n")
+#cat("Range d2_rf$x:", range(d2_rf$x), "\n")
 # ── 7. ABC-DRF ───────────────────────────────────────────────────────────────
 # DRF è una generalizzazione multivariata: stima la distribuzione congiunta
 # di (θ1, θ2) in un unico passo, catturando la dipendenza tra i parametri.
@@ -392,7 +404,7 @@ polygon(
 # sopra il poligono blu e non viene coperta.
 lines(t1g,      d1_true,  col = "red",    lwd = 2.5)  # vera (rosso)
 lines(d1_drf$x, d1_drf$y, col = "blue",   lwd = 2)    # ABC-DRF (blu)
-lines(d1_rf$x,  d1_rf$y,  col = "green3", lwd = 2.5)  # ABC-RF (verde) — sopra a tutto
+#lines(d1_rf$x,  d1_rf$y,  col = "green3", lwd = 2.5)  # ABC-RF (verde) — sopra a tutto
 
 
 # ── Pannello 3: Marginale θ2 (basso-destra, ruotata 90°) ─────
@@ -420,15 +432,15 @@ polygon(
 # Stesso ordine: verde per ultima → sempre in primo piano
 lines(d2_true,  t2g,       col = "red",    lwd = 2.5)  # vera
 lines(d2_drf$y, d2_drf$x,  col = "blue",   lwd = 2)    # ABC-DRF
-lines(d2_rf$y,  d2_rf$x,   col = "green3", lwd = 2.5)  # ABC-RF — sopra a tutto
+#lines(d2_rf$y,  d2_rf$x,   col = "green3", lwd = 2.5)  # ABC-RF — sopra a tutto
 
 
 # ── Pannello 4: Legenda (alto-destra) ─────────────────────────
 par(mar = c(0, 0, 2, 2))
 plot.new()
 legend("center",
-       legend = c("True posterior", "ABC-RF", "ABC-DRF"),
-       col    = c("red", "green3", "blue"),
+       legend = c("True posterior", "ABC-DRF"),
+       col    = c("red", "blue"),
        lwd    = 2.5,
        bty    = "n",
        cex    = 1.15)
