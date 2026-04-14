@@ -7,7 +7,7 @@ library(drf) #per drf e predict (drf objects)
 library(parallel)#per tutte le robe multicore
 set.seed(1)
 n_cores <- parallel::detectCores() - 2 #per il mio mac è la funzione più safe
-# Parametri del modello
+# Parametri del modello per il TRAINING
 a0<-4 #shape della IG
 b0<-3 #rate della IG
 n_oss<-10  # del campione
@@ -22,16 +22,17 @@ sst<- function(y){
   MAD <- mad(y)
   
   c(
-  Ybar=Ybar, 
-  SD=SD,
-  MAD=MAD,
-  SQ=sum((y-Ybar)^2), #Ybar e SQ sono statistiche sufficienti per th1 e th2, ne mettiamo di piu per dimostrare che la drf è capace di ignorare quelle inutili
-  Median=median(y),
-  q25=quantile(y, 0.25),
-  q90=quantile(y, 0.9),
-  q75=quantile(y, 0.75),
-  skew=mean((y-Ybar)^3/SD^3))
-  } #9 features
+    Ybar=Ybar, 
+    SD=SD,
+    MAD=MAD,
+    SQ=sum((y-Ybar)^2),
+    #Ybar e SQ sono statistiche sufficienti per th1 e th2, ne mettiamo di piu per dimostrare che la drf è capace di ignorare quelle inutili
+    Median=median(y),
+    q25=quantile(y, 0.25),
+    q90=quantile(y, 0.9),
+    q75=quantile(y, 0.75),
+    skew=mean((y-Ybar)^3/SD^3))
+} #11 features
 cat("Summ Stats...\n")
 #   Ref set tale per cui
 #   Y_i | th  ~ N(th1, th2) (ll)
@@ -40,13 +41,22 @@ cat("Summ Stats...\n")
 n_sim<-10000
 th2<- rinvgamma(n_sim, shape = a0, rate = b0)
 th1<- rnorm(n_sim, mean = 0, sd=sqrt(th2))
-cat("X_ref...\n")
-
-Sref<-mclapply(1:n_sim,#mclapply è la verisone multicore parallel di sapply (non ha piu bisogno della trasposta)
-               function(x){
-               sst(rnorm(n_oss, mean = th1[x], sd=sqrt(th2[x])))}, mc.cores = n_cores)#mclapply la trasforma in lista, quindi
-Sref<-do.call(rbind,Sref)
-
+cat("X_ref...\n") #fai riferimento ad algortihm1 (Raynal)
+#voglio simulare Y come matrice n_simXn_oss 
+# cosicchè su ogni riga i ho le osservazioni data una coppia theta i fissata per quella riga
+Y<-matrix(nrow = n_sim, ncol= n_oss)
+#mclapply è la verisone multicore parallel di sapply (non ha piu bisogno della trasposta)
+Y<-mclapply(1:n_sim, function(i){
+  rnorm(n_oss, mean = th1[i], sqrt(th2[i]))
+})
+Y <- do.call(rbind,Y) #da questa Y, voglio che ogni riga diventi summ.stat.tra le n_oss osservazioni, 
+#cioè voglio n_sim summary statistics:
+#Sref è la sst di Y riga per riga ma con solo le feature che ho ocstruito io, Xref sarà quella con e feature noisy
+Sref<-mclapply(1:n_sim,
+               function(r){
+                 sst(Y[r,])
+               }, mc.cores = n_cores)#mclapply la trasforma in lista, quindi
+Sref<-do.call(rbind,Sref) #perchè hai usato do.call? perchè noi vogliamo un vettore
 
 Rumref<-matrix(runif(50*n_sim), nrow = n_sim, ncol = 50)
 colnames(Rumref)<-paste0("feature #", 1:50)
@@ -90,10 +100,10 @@ cat("Training DRFs...\n")
 #drf(Xref, thjoint, ntrees)
 n_trees<-5000
 drf_tr<-drf(
-            X=Xref,
-            Y=cbind(theta1=th1, theta2=th2),
-            num.trees = n_trees,
-            num.threads = n_cores)
+  X=Xref,
+  Y=cbind(theta1=th1, theta2=th2),
+  num.trees = n_trees,
+  num.threads = n_cores)
 #predict ha bisogno di una matrice 1xnfeatures quindi
 y_vero_matx<-matrix(as.numeric(y_vero), nrow = 1)
 colnames(y_vero_matx) <- colnames(Xref)
@@ -116,7 +126,7 @@ th2_densmarg<-density(th2, weights = pesi, n=512, bw="SJ")
 #Assi per joint
 asse1_joint <- seq(-1,3,length.out=300) #th1 sta tra questi due valori
 asse2_joint <- seq(0.01,4,length.out=300)
-mappa_joint <- outer(asse1_joint,asse2_joint,Vectorize(joint_vera))
+mappa_joint <- outer(asse1_joint,asse2_joint,Vectorize(joint_vera)) #con densità true
 #Assi per le marginals
 asse1_marg <- seq(-1,3,length.out=600) #th1 sta tra questi due valori
 asse2_marg <- seq(0.01,4
@@ -138,7 +148,7 @@ livelli <- quantile(mappa_joint[mappa_joint > max(mappa_joint) * 0.01], probs = 
 
 #Heatmap
 image(kde_joint,
-      col=hcl.colors(256, "plasma"),
+      col=hcl.colors(8, "plasma"),
       xlim=c(-1,3),
       ylim=c(0.01,4),
       xlab="Theta 1",
