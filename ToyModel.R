@@ -1,11 +1,11 @@
 #sapply, outer, funzioni kde e drf, bw=SJ, Vectorize
 #t-student
-library(abcrf)
+#library(abcrf) 
 library(MASS) #per kde
 library(invgamma)
-library(drf)
+library(drf) #per drf e predict (drf objects)
 library(parallel)#per tutte le robe multicore
-set.seed(88)
+set.seed(1)
 n_cores <- parallel::detectCores() - 2 #per il mio mac è la funzione più safe
 # Parametri del modello
 a0<-4 #shape della IG
@@ -54,6 +54,7 @@ colnames(Rumref)<-paste0("feature #", 1:50)
 Xref<-cbind(Sref,Rumref)
 
 #Dati Osservati "true"
+set.seed(1)
 th2_vero<-rinvgamma(1,a0,b0)
 th1_vero<-rnorm(1,mean = 0, sd = sqrt(th2_vero))
 y_temp<-rnorm(n_oss, mean = th1_vero, sd = sqrt(th2_vero))
@@ -137,7 +138,7 @@ livelli <- quantile(mappa_joint[mappa_joint > max(mappa_joint) * 0.01], probs = 
 
 #Heatmap
 image(kde_joint,
-      col=hcl.colors(256, "viridis"),
+      col=hcl.colors(256, "plasma"),
       xlim=c(-1,3),
       ylim=c(0.01,4),
       xlab="Theta 1",
@@ -147,6 +148,7 @@ contour(asse1_joint, asse2_joint, mappa_joint, add=TRUE, col="red", lty = 6,lwd=
 points(th1_vero,th2_vero,lwd=3, pch=4, cex= 2,col="white")
 legend("topright",
        legend = c("DRF", "True post", "True (th1, th2)"),
+       text.col = "white",
        col    = c(hcl.colors(1, "viridis"), "red", "white"),
        lty    = c(5, 1, 1),
        lwd    = c(6, 6, 6),
