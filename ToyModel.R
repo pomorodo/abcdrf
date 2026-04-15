@@ -65,7 +65,7 @@ Xref<-cbind(Sref,Rumref)
 
 #Dati Osservati "true"
 set.seed(1)
-th2_vero<-rinvgamma(1,a0,b0)
+th2_vero<-rinvgamma(1,shape = a0, rate = b0)
 th1_vero<-rnorm(1,mean = 0, sd = sqrt(th2_vero))
 y_temp<-rnorm(n_oss, mean = th1_vero, sd = sqrt(th2_vero))
 
@@ -115,7 +115,7 @@ pesi<-pesi/sum(pesi)
 
 #Campionamento joint posterior, approx p(th1,th2|y_vero)
 #Sfruttiamo i pesi calcolati dalle drf
-sampling<-sample(n_sim, size = 5000, replace = TRUE, prob = pesi )
+sampling<-sample(n_sim, size = 20000, replace = TRUE, prob = pesi )
 th1_drf <- th1[sampling]
 th2_drf <- th2[sampling]
 #densità marginali pesate estratte dalle DRF, invece di calcolarle con abc-rf
