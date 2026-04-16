@@ -85,7 +85,7 @@ b_post <- B
 mu <- n_oss * ybar_post / (n_oss + 1)
 tau2 <- 2*B/((n_oss +1)*(n_oss + 8))
 #true joint p(th1,th2|y)=p(th1|th2,y)p(th2|y)=sum log
-joint_vera <- function(theta1, theta2){
+joint_post <- function(theta1, theta2){
   exp(
     dinvgamma(theta2, shape = a_post, rate = b_post, log = TRUE) +  # log p(th2|y)
       dnorm(theta1, mean = mu, sd = sqrt(2 * theta2 / (n_oss + 1)), log = TRUE)  # log p(th1|th2,y)
@@ -115,7 +115,7 @@ pesi<-pesi/sum(pesi)
 
 #Campionamento joint posterior, approx p(th1,th2|y_vero)
 #Sfruttiamo i pesi calcolati dalle drf
-sampling<-sample(n_sim, size = 20000, replace = TRUE, prob = pesi )
+sampling<-sample(n_sim, size = 10000, replace = TRUE, prob = pesi )
 th1_drf <- th1[sampling]
 th2_drf <- th2[sampling]
 #densità marginali pesate estratte dalle DRF, invece di calcolarle con abc-rf
@@ -126,7 +126,7 @@ th2_densmarg<-density(th2, weights = pesi, n=512, bw="SJ")
 #Assi per joint
 asse1_joint <- seq(-1,3,length.out=300) #th1 sta tra questi due valori
 asse2_joint <- seq(0.01,4,length.out=300)
-mappa_joint <- outer(asse1_joint,asse2_joint,Vectorize(joint_vera)) #con densità true
+mappa_joint <- outer(asse1_joint,asse2_joint,Vectorize(joint_post)) #con densità true
 #Assi per le marginals
 asse1_marg <- seq(-1,3,length.out=600) #th1 sta tra questi due valori
 asse2_marg <- seq(0.01,4
@@ -143,8 +143,7 @@ kde_joint<-kde2d(
   lims=c(-1,3,0.01,4)
 )
 #mappa_joint[mappa_joint > max(mappa_joint) * 0.05] # cosi posso tagliare le code quasi piatte e tenere solo valori rilevanti (controlla se è giusto)
-livelli <- quantile(mappa_joint[mappa_joint > max(mappa_joint) * 0.01], probs = c(0.001, 0.01, 0.1, 0.3, 0.5, 0.9, 0.99)) #per il contour rosso
-
+livelli <- seq(min(mappa_joint), max(mappa_joint), length.out = 9)
 
 #Heatmap
 image(kde_joint,
@@ -154,14 +153,14 @@ image(kde_joint,
       xlab="Theta 1",
       ylab="Theta 2",
       main="DRF: joint posterior")
-contour(asse1_joint, asse2_joint, mappa_joint, add=TRUE, col="red", lty = 6,lwd=2, levels = livelli, drawlabels=FALSE)
+contour(asse1_joint, asse2_joint, mappa_joint, add=TRUE, col="white", lty = 6,lwd=1, levels = livelli)
 points(th1_vero,th2_vero,lwd=3, pch=4, cex= 2,col="white")
 legend("topright",
        legend = c("DRF", "True post", "True (th1, th2)"),
        text.col = "white",
-       col    = c(hcl.colors(1, "viridis"), "red", "white"),
-       lty    = c(5, 1, 1),
-       lwd    = c(6, 6, 6),
+       col    = c("orange", "red", "white"),
+       lty    = c(1, 1, 1),
+       lwd    = c(3, 3, 3),
        bty    = "n")
 
 # Contour corretto?
