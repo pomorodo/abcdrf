@@ -154,16 +154,16 @@ image(kde_joint,
       ylab="Theta 2",
       main="DRF: joint posterior")
 contour(asse1_joint, asse2_joint, mappa_joint, add=TRUE, col="white", lty = 6,lwd=1, levels = livelli)
-points(th1_vero,th2_vero,lwd=3, pch=4, cex= 2,col="white")
+points(th1_vero,th2_vero,lwd=3, pch=4, cex= 2,col="green")
 legend("topright",
        legend = c("DRF", "True post", "True (th1, th2)"),
        text.col = "white",
-       col    = c("orange", "red", "white"),
+       col    = c("red", "white", "green"),
        lty    = c(1, 1, 1),
        lwd    = c(3, 3, 3),
        bty    = "n")
 
-# Contour corretto?
+# Contour corretto?√
 #Marginale di th1 ———————————————————
 ylim2 <- c(0, max(dens1_vera, th1_densmarg$y) * 1.25)
 
