@@ -98,7 +98,7 @@ gdl<- n_oss+8 #gradi di libertà
 #ABC-DRF
 cat("Training DRFs...\n")
 #drf(Xref, thjoint, ntrees)
-n_trees<-5000
+n_trees<-500
 drf_tr<-drf(
   X=Xref,
   Y=cbind(theta1=th1, theta2=th2),
