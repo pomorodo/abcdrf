@@ -110,8 +110,8 @@ colnames(y_vero_matx) <- colnames(Xref)
 drf_pred<-predict(drf_tr, newdata=y_vero_matx)
 pesi<-drf_pred$weights[1,]
 #normalizzazione e pulizia impurità
-pesi<-pmax(pesi,0)
-pesi<-pesi/sum(pesi) 
+#pesi<-pmax(pesi,0)
+#pesi<-pesi/sum(pesi) 
 
 #Campionamento joint posterior, approx p(th1,th2|y_vero)
 #Sfruttiamo i pesi calcolati dalle drf
